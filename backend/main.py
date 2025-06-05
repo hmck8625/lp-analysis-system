@@ -289,15 +289,22 @@ async def perform_analysis(session_id: str, api_key: str):
         logger.info(f"Starting analysis with images: {image_a_path}, {image_b_path}")
         
         # 結果格納用
-        if "results" not in session:
+        if "results" not in session or session["results"] is None:
             session["results"] = {}
         
         # Stage 1: Structure Analysis
         logger.info("Starting Stage 1: Structure Analysis")
         try:
             stage1_result = await openai_service.analyze_structure(image_a_path, image_b_path)
-            session["results"]["stage1"] = stage1_result
-            logger.info("Stage 1 completed successfully")
+            logger.info(f"Stage 1 result type: {type(stage1_result)}")
+            logger.info(f"Stage 1 result preview: {str(stage1_result)[:200] if stage1_result else 'None'}")
+            
+            if stage1_result is not None:
+                session["results"]["stage1"] = stage1_result
+                logger.info("Stage 1 completed successfully")
+            else:
+                logger.error("Stage 1 returned None result")
+                raise Exception("Structure analysis returned empty result")
         except Exception as e:
             logger.error(f"Stage 1 failed: {str(e)}")
             raise Exception(f"Structure analysis failed: {str(e)}")

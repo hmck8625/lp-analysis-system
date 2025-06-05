@@ -63,7 +63,15 @@ class OpenAIService:
             temperature=0.3
         )
         
-        return response.choices[0].message.content
+        # レスポンスの安全な処理
+        if response and response.choices and len(response.choices) > 0:
+            choice = response.choices[0]
+            if choice.message and choice.message.content:
+                return choice.message.content
+            else:
+                raise Exception("OpenAI response message content is empty")
+        else:
+            raise Exception("OpenAI response is empty or invalid")
     
     async def analyze_content(
         self, 
@@ -117,7 +125,15 @@ class OpenAIService:
             temperature=0.3
         )
         
-        return response.choices[0].message.content
+        # レスポンスの安全な処理
+        if response and response.choices and len(response.choices) > 0:
+            choice = response.choices[0]
+            if choice.message and choice.message.content:
+                return choice.message.content
+            else:
+                raise Exception("OpenAI content analysis response is empty")
+        else:
+            raise Exception("OpenAI content analysis response is invalid")
     
     async def generate_final_analysis(
         self,
@@ -180,4 +196,12 @@ class OpenAIService:
             temperature=0.2
         )
         
-        return response.choices[0].message.content
+        # レスポンスの安全な処理
+        if response and response.choices and len(response.choices) > 0:
+            choice = response.choices[0]
+            if choice.message and choice.message.content:
+                return choice.message.content
+            else:
+                raise Exception("OpenAI final analysis response is empty")
+        else:
+            raise Exception("OpenAI final analysis response is invalid")
