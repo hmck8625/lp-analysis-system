@@ -12,7 +12,7 @@ class OpenAIService:
             raise ValueError("OpenAI API key is required")
         
         self.client = openai.AsyncOpenAI(api_key=self.api_key)
-        self.model = "gpt-4-vision-preview"
+        self.model = "gpt-4o"
     
     async def _encode_image(self, image_path: str) -> str:
         """画像をbase64エンコード"""
