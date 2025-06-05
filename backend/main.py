@@ -218,7 +218,7 @@ async def get_analysis_status(session_id: str):
     error_details = None
     
     if session["status"] == "processing":
-        results = session.get("results", {})
+        results = session.get("results") or {}
         if results.get("stage1"):
             progress = 33
             current_stage = "Structure Analysis Complete"
