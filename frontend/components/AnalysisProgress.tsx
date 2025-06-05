@@ -10,7 +10,9 @@ import {
   Clock,
   Brain,
   Search,
-  FileText
+  FileText,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 
 import { AnalysisStatus } from '@/types'
@@ -27,6 +29,85 @@ export default function AnalysisProgress({ status, onComplete }: AnalysisProgres
       onComplete()
     }
   }, [status.status, onComplete])
+
+  // エラー状態の場合
+  if (status.status === 'failed') {
+    return (
+      <div className="space-y-6">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="text-center mb-6">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4"
+              >
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </motion.div>
+              <h3 className="text-xl font-semibold text-red-900 mb-2">
+                分析が失敗しました
+              </h3>
+              <p className="text-red-700 mb-4">
+                {status.current_stage}
+              </p>
+              
+              {/* エラー詳細 */}
+              {(status as any).error && (
+                <div className="bg-red-100 border border-red-200 rounded-lg p-4 mb-4 text-left">
+                  <h4 className="font-medium text-red-900 mb-2">エラー詳細:</h4>
+                  <p className="text-sm text-red-800 font-mono">
+                    {(status as any).error}
+                  </p>
+                  {(status as any).failed_at && (
+                    <p className="text-xs text-red-600 mt-2">
+                      失敗時刻: {new Date((status as any).failed_at).toLocaleString('ja-JP')}
+                    </p>
+                  )}
+                </div>
+              )}
+              
+              <div className="flex flex-col space-y-2 text-sm text-red-700">
+                <p>考えられる原因:</p>
+                <ul className="list-disc text-left pl-4 space-y-1">
+                  <li>OpenAI API keyが無効または期限切れ</li>
+                  <li>API使用量制限に達している</li>
+                  <li>画像ファイルが破損している</li>
+                  <li>ネットワーク接続の問題</li>
+                  <li>一時的なサーバーエラー</li>
+                </ul>
+              </div>
+              
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                ページを再読み込み
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* トラブルシューティング */}
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="pt-4">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-yellow-900 mb-1">トラブルシューティング</h4>
+                <div className="space-y-1 text-sm text-yellow-800">
+                  <p>1. OpenAI API keyの設定を確認してください</p>
+                  <p>2. 画像ファイルが正しくアップロードされているか確認してください</p>
+                  <p>3. しばらく時間をおいてから再試行してください</p>
+                  <p>4. 問題が続く場合は、異なる画像で試してください</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const stages = [
     {

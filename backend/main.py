@@ -7,10 +7,15 @@ import uuid
 import os
 import json
 import asyncio
+import logging
 from datetime import datetime
 import aiofiles
 from PIL import Image
 import io
+
+# ログ設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from services.openai_service import OpenAIService
 from services.image_service import ImageService
@@ -141,27 +146,55 @@ async def start_analysis(
     background_tasks: BackgroundTasks,
     x_openai_api_key: Optional[str] = Header(None, alias="X-OpenAI-API-Key")
 ):
+    logger.info(f"Starting analysis for session: {request.session_id}")
+    
     if request.session_id not in analysis_sessions:
+        logger.error(f"Session not found: {request.session_id}")
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = analysis_sessions[request.session_id]
+    logger.info(f"Session found. Status: {session['status']}")
     
     # API keyチェック
     api_key = x_openai_api_key or os.getenv("OPENAI_API_KEY")
+    logger.info(f"API key provided: {bool(api_key)}")
     if not api_key:
+        logger.error("No OpenAI API key provided")
         raise HTTPException(
             status_code=400, 
             detail="OpenAI API key is required. Please set it in the UI or environment variable."
         )
     
     # 画像チェック
-    if not session["image_a_filename"] or not session["image_b_filename"]:
+    image_a_exists = bool(session["image_a_filename"])
+    image_b_exists = bool(session["image_b_filename"])
+    logger.info(f"Images uploaded - A: {image_a_exists}, B: {image_b_exists}")
+    
+    if not image_a_exists or not image_b_exists:
+        logger.error(f"Missing images - A: {session['image_a_filename']}, B: {session['image_b_filename']}")
         raise HTTPException(status_code=400, detail="Both images must be uploaded")
+    
+    # 画像ファイル存在確認
+    image_a_path = f"uploads/{session['image_a_filename']}"
+    image_b_path = f"uploads/{session['image_b_filename']}"
+    
+    if not os.path.exists(image_a_path):
+        logger.error(f"Image A file not found: {image_a_path}")
+        raise HTTPException(status_code=400, detail="Image A file not found on server")
+    
+    if not os.path.exists(image_b_path):
+        logger.error(f"Image B file not found: {image_b_path}")
+        raise HTTPException(status_code=400, detail="Image B file not found on server")
+    
+    logger.info(f"Image files confirmed - A: {image_a_path}, B: {image_b_path}")
     
     # ステータス更新
     session["status"] = "processing"
     session["performance_data"] = request.performance_data.dict() if request.performance_data else None
     session["api_key"] = api_key  # セッションにAPI keyを保存
+    session["error"] = None  # エラーをクリア
+    
+    logger.info("Starting background analysis task")
     
     # バックグラウンドで分析実行
     background_tasks.add_task(perform_analysis, request.session_id, api_key)
@@ -182,6 +215,7 @@ async def get_analysis_status(session_id: str):
     # プログレス計算
     progress = 0
     current_stage = "Preparing"
+    error_details = None
     
     if session["status"] == "processing":
         results = session.get("results", {})
@@ -199,14 +233,22 @@ async def get_analysis_status(session_id: str):
         current_stage = "Analysis Complete"
     elif session["status"] == "failed":
         current_stage = "Analysis Failed"
+        error_details = session.get("error", "Unknown error occurred")
     
-    return {
+    response = {
         "session_id": session_id,
         "status": session["status"],
         "progress": progress,
         "current_stage": current_stage,
         "results": session.get("results")
     }
+    
+    # エラー詳細を含める
+    if error_details:
+        response["error"] = error_details
+        response["failed_at"] = session.get("failed_at")
+    
+    return response
 
 @app.get("/api/analysis/{session_id}/results")
 async def get_analysis_results(session_id: str):
@@ -227,44 +269,80 @@ async def get_analysis_results(session_id: str):
 
 # Background Analysis Task
 async def perform_analysis(session_id: str, api_key: str):
+    logger.info(f"Background analysis started for session: {session_id}")
+    
     try:
         session = analysis_sessions[session_id]
-        openai_service = OpenAIService(api_key=api_key)
+        logger.info(f"Initializing OpenAI service with API key")
+        
+        # OpenAI サービス初期化
+        try:
+            openai_service = OpenAIService(api_key=api_key)
+            logger.info("OpenAI service initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize OpenAI service: {str(e)}")
+            raise Exception(f"OpenAI service initialization failed: {str(e)}")
         
         image_a_path = f"uploads/{session['image_a_filename']}"
         image_b_path = f"uploads/{session['image_b_filename']}"
+        
+        logger.info(f"Starting analysis with images: {image_a_path}, {image_b_path}")
         
         # 結果格納用
         if "results" not in session:
             session["results"] = {}
         
         # Stage 1: Structure Analysis
-        stage1_result = await openai_service.analyze_structure(image_a_path, image_b_path)
-        session["results"]["stage1"] = stage1_result
+        logger.info("Starting Stage 1: Structure Analysis")
+        try:
+            stage1_result = await openai_service.analyze_structure(image_a_path, image_b_path)
+            session["results"]["stage1"] = stage1_result
+            logger.info("Stage 1 completed successfully")
+        except Exception as e:
+            logger.error(f"Stage 1 failed: {str(e)}")
+            raise Exception(f"Structure analysis failed: {str(e)}")
         
         # Stage 2: Content Analysis
-        stage2_result = await openai_service.analyze_content(
-            image_a_path, image_b_path, stage1_result
-        )
-        session["results"]["stage2"] = stage2_result
+        logger.info("Starting Stage 2: Content Analysis")
+        try:
+            stage2_result = await openai_service.analyze_content(
+                image_a_path, image_b_path, stage1_result
+            )
+            session["results"]["stage2"] = stage2_result
+            logger.info("Stage 2 completed successfully")
+        except Exception as e:
+            logger.error(f"Stage 2 failed: {str(e)}")
+            raise Exception(f"Content analysis failed: {str(e)}")
         
         # Stage 3: Final Analysis
-        stage3_result = await openai_service.generate_final_analysis(
-            stage1_result, stage2_result, session.get("performance_data")
-        )
-        session["results"]["stage3"] = stage3_result
+        logger.info("Starting Stage 3: Final Analysis")
+        try:
+            stage3_result = await openai_service.generate_final_analysis(
+                stage1_result, stage2_result, session.get("performance_data")
+            )
+            session["results"]["stage3"] = stage3_result
+            logger.info("Stage 3 completed successfully")
+        except Exception as e:
+            logger.error(f"Stage 3 failed: {str(e)}")
+            raise Exception(f"Final analysis failed: {str(e)}")
         
         # 完了
         session["status"] = "completed"
         session["completed_at"] = datetime.now()
+        logger.info(f"Analysis completed successfully for session: {session_id}")
         
         # API keyをクリーンアップ
         if "api_key" in session:
             del session["api_key"]
         
     except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Analysis failed for session {session_id}: {error_msg}")
+        
         session["status"] = "failed"
-        session["error"] = str(e)
+        session["error"] = error_msg
+        session["failed_at"] = datetime.now()
+        
         # API keyをクリーンアップ
         if "api_key" in session:
             del session["api_key"]

@@ -65,24 +65,66 @@ export default function AnalysisPage() {
   const startAnalysisMutation = useMutation({
     mutationFn: api.analysis.start,
     onSuccess: () => {
+      console.log('Analysis started successfully')
       setActiveTab('analysis')
       refetch()
     },
+    onError: (error: any) => {
+      console.error('Analysis start error:', error)
+      const errorMessage = error.response?.data?.detail || error.message || 'Unknown error occurred'
+      alert(`分析開始エラー: ${errorMessage}`)
+    }
   })
 
   const handleStartAnalysis = async () => {
-    if (!session) return
+    console.log('Starting analysis for session:', sessionId)
+    
+    if (!session) {
+      console.error('No session found')
+      alert('セッションが見つかりません')
+      return
+    }
+    
+    console.log('Session status:', session.status)
+    console.log('Images uploaded:', {
+      image_a: session.image_a_filename,
+      image_b: session.image_b_filename
+    })
     
     // API keyチェック
-    if (!apiKeyStorage.exists()) {
+    const hasApiKey = apiKeyStorage.exists()
+    console.log('API key exists:', hasApiKey)
+    
+    if (!hasApiKey) {
+      console.log('No API key found, showing modal')
       setShowApiKeyModal(true)
       return
     }
     
-    await startAnalysisMutation.mutateAsync({
+    // 画像チェック
+    if (!session.image_a_filename || !session.image_b_filename) {
+      console.error('Missing images:', {
+        image_a: session.image_a_filename,
+        image_b: session.image_b_filename
+      })
+      alert('両方の画像をアップロードしてください')
+      return
+    }
+    
+    console.log('Starting analysis mutation with data:', {
       session_id: sessionId,
       performance_data: performanceData.image_a.visitors > 0 ? performanceData : undefined
     })
+    
+    try {
+      await startAnalysisMutation.mutateAsync({
+        session_id: sessionId,
+        performance_data: performanceData.image_a.visitors > 0 ? performanceData : undefined
+      })
+    } catch (error) {
+      console.error('Analysis mutation failed:', error)
+      // エラーは onError で処理される
+    }
   }
 
   const handleApiKeySave = (apiKey: string) => {
