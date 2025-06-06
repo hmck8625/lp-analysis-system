@@ -20,6 +20,7 @@ import { api } from '@/lib/api'
 import { AnalysisSession } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import ImageComparison from './ImageComparison'
 
 interface AnalysisResultsProps {
   sessionId: string
@@ -27,6 +28,7 @@ interface AnalysisResultsProps {
 }
 
 export default function AnalysisResults({ sessionId, session }: AnalysisResultsProps) {
+  const [activeTab, setActiveTab] = useState<'analysis' | 'comparison'>('analysis')
   const [activeStage, setActiveStage] = useState<1 | 2 | 3>(3)
 
   // 分析結果取得
@@ -217,8 +219,51 @@ export default function AnalysisResults({ sessionId, session }: AnalysisResultsP
         </Card>
       )}
 
-      {/* Stage Navigation */}
-      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+      {/* Main Tab Navigation */}
+      <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-4">
+        <button
+          onClick={() => setActiveTab('analysis')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center ${
+            activeTab === 'analysis'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>分析レポート</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('comparison')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium transition-colors flex-1 justify-center ${
+            activeTab === 'comparison'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <Eye className="w-4 h-4" />
+          <span>画像比較分析</span>
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'comparison' ? (
+        <motion.div
+          key="comparison"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <ImageComparison
+            imageA={session.image_a_filename || ''}
+            imageB={session.image_b_filename || ''}
+            sessionId={sessionId}
+            analysisResults={results}
+          />
+        </motion.div>
+      ) : (
+        <div>
+          {/* Stage Navigation */}
+          <div className="flex space-x-1 bg-gray-100 rounded-lg p-1 mb-6">
         {stages.map((stage) => (
           <button
             key={stage.id}
@@ -289,7 +334,9 @@ export default function AnalysisResults({ sessionId, session }: AnalysisResultsP
             </Card>
           )
         ))}
-      </motion.div>
+        </motion.div>
+        </div>
+      )}
 
       {/* Success Footer */}
       <Card className="bg-green-50 border-green-200">

@@ -1,3 +1,21 @@
+export interface ElementPosition {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface AnalysisElement {
+  id: string
+  name: string
+  type: 'header' | 'hero' | 'cta' | 'content' | 'footer' | string
+  position_a: ElementPosition
+  position_b: ElementPosition
+  changes: string
+  impact: string
+  recommendation?: string
+}
+
 export interface AnalysisSession {
   id: string
   title: string
@@ -10,6 +28,8 @@ export interface AnalysisSession {
     stage1?: string
     stage2?: string
     stage3?: string
+    elements?: AnalysisElement[]
+    structure_summary?: string
   }
   performance_data?: PerformanceData
 }
@@ -41,6 +61,8 @@ export interface AnalysisResults {
     stage1: string
     stage2: string
     stage3: string
+    elements?: AnalysisElement[]
+    structure_summary?: string
   }
   performance_data?: PerformanceData
   completed_at: string

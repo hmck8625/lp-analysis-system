@@ -152,7 +152,7 @@ export default function ApiKeyModal({ isOpen, onClose, onSave, currentApiKey }: 
               <ol className="text-sm text-blue-700 space-y-1">
                 <li>1. <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="underline">OpenAI Platform</a> にアクセス</li>
                 <li>2. アカウントにログインまたは作成</li>
-                <li>3. "Create new secret key" をクリック</li>
+                <li>3. &quot;Create new secret key&quot; をクリック</li>
                 <li>4. 生成されたAPI keyをコピーして貼り付け</li>
               </ol>
             </div>
